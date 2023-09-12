@@ -27,6 +27,7 @@ LAST_CHECK = datetime.now() - timedelta(minutes=1)
 LOC = None
 RUNNING = True
 
+THEME = "Default"
 TIME = ""
 CURRENT = []
 TIME_LEFT = 0
@@ -35,8 +36,6 @@ NEXT = []
 FIELDS = []
 ROWS = []
 REPL = {}
-
-sg.theme("Default1")
 
 
 # Load data
@@ -58,7 +57,9 @@ try:
                         ['Friday1Note', 'Friday2Note'],
                         ['Saturday1Note', 'Saturday2Note'],
                         ['Sunday1Note', 'Sunday2Note'],
-                        ['DayDidntStartMessage', 'DayEndedMesssage']])
+                        ['DayDidntStartMessage',
+                         'DayEndedMesssage',
+                         'BreakName']])
         f.close()
         sg.PopupOK("Please fill out the newly created timetable.csv"
                    + " before relaunching the app.\n"
@@ -100,7 +101,7 @@ def time_format(i: timedelta) -> str:
 
 
 def update():
-    global LAST_CHECK, TIME, CURRENT, TIME_LEFT, NEXT
+    global LAST_CHECK, TIME, CURRENT, TIME_LEFT, NEXT, THEME
 
     CURRENT = []
     TIME_LEFT = ""
@@ -176,6 +177,19 @@ def update():
 
             TIME_LEFT = time_format(_bgn - _time + timedelta(hours=24))
 
+    if CURRENT[0] in ROWS[14]:
+        if THEME != "LightBlue2":
+            THEME = "LightBlue2"
+            return True
+        else:
+            return False
+    else:
+        if THEME != "LightBrown6":
+            THEME = "LightBrown6"
+            return True
+        else:
+            return False
+
 
 # Window definition
 LO = [[sg.P(), sg.T(""), sg.P()],
@@ -198,7 +212,10 @@ while RUNNING:
         LOC = Win.CurrentLocation()
 
         Win.close()
-        update()
+
+        if update():
+            sg.theme(THEME)
+
         LO = [[sg.P(), sg.T(TIME, font="Arial 24 bold"), sg.P()],
               [sg.P(), sg.T("Current:", font="Arial 10"), sg.P()],
               [sg.P(), sg.T(CURRENT[0], font="Arial 14"),
