@@ -14,12 +14,9 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-from csv import reader as cread
-from csv import writer as cwrite
+from csv import reader
 import PySimpleGUI as sg
 from datetime import datetime, timedelta
-from json import dump as jdump
-from json import load as jload
 
 
 # Constant list
@@ -30,62 +27,25 @@ RUNNING = True
 THEME = "Default"
 TIME = ""
 CURRENT = []
-TIME_LEFT = 0
+TIME_LEFT = ""
 NEXT = []
 
 FIELDS = []
 ROWS = []
-REPL = {}
 
 
 # Load data
 try:
-    with open("timetable.csv", "x", encoding="utf-8") as f:
-        _wrt = cwrite(f)
-        _wrt.writerow(['HH:MM', 'HH:MM'])
-        _wrt.writerows([['Monday1', 'Monday2'],
-                        ['Tuesday1', 'Tuesday2'],
-                        ['Wednesday1', 'Wednesday2'],
-                        ['Thursday1', 'Thursday2'],
-                        ['Friday1', 'Friday2'],
-                        ['Saturday1', 'Saturday2'],
-                        ['Sunday1', 'Sunday2'],
-                        ['Monday1Note', 'Monday2Note'],
-                        ['Tuesday1Note', 'Tuesday2Note'],
-                        ['Wednesday1Note', 'Wednesday2Note'],
-                        ['Thursday1Note', 'Thursday2Note'],
-                        ['Friday1Note', 'Friday2Note'],
-                        ['Saturday1Note', 'Saturday2Note'],
-                        ['Sunday1Note', 'Sunday2Note'],
-                        ['DayDidntStartMessage',
-                         'DayEndedMesssage',
-                         'BreakName']])
-        f.close()
-        sg.PopupOK("Please fill out the newly created timetable.csv"
-                   + " before relaunching the app.\n"
-                   + "NOTE: You may add as many columns as you'd like.")
-        exit()
-except FileExistsError:
     with open("timetable.csv", "r", encoding="utf-8") as f:
-        _raw = cread(f)
+        _raw = reader(f)
         FIELDS = next(_raw)
         for _row in _raw:
             if _row != []:
                 ROWS.append(_row)
         f.close()
-
-
-try:
-    with open("substitution.json", "x", encoding="utf-8") as f:
-        jdump(dict({"mm-dd": {"0": ["Hour1", "Hour1Note"],
-                              "1": ["Hour2", "Hour2Note"]}}), f)
-        f.close()
-        sg.PopupOK("You may use the newly created substitution.json to fill "
-                   + "out any temporary changes to the regular time-table.")
-except FileExistsError:
-    with open("substitution.json", "r", encoding="utf-8") as f:
-        REPL = jload(f)
-        f.close()
+except FileNotFoundError:
+    sg.PopupOK("Error! File 'timetable.csv' not found!", title="Error!")
+    exit()
 
 
 def time_format(i: timedelta) -> str:
@@ -101,21 +61,12 @@ def time_format(i: timedelta) -> str:
 
 
 def update():
-    global LAST_CHECK, TIME, CURRENT, TIME_LEFT, NEXT, THEME
-
-    CURRENT = []
-    TIME_LEFT = ""
-    NEXT = []
+    global LAST_CHECK, THEME, TIME, CURRENT, TIME_LEFT, NEXT
 
     TIME = datetime.strftime(LAST_CHECK, "%H:%M")
     _time = datetime.strptime(TIME, "%H:%M")
     _row0 = ROWS[LAST_CHECK.weekday()]
     _row1 = ROWS[LAST_CHECK.weekday() + 7]
-
-    try:
-        _repl = REPL[datetime.strftime(LAST_CHECK, "%m-%d")]
-    except KeyError:
-        _repl = None
 
     for i in range(0, len(FIELDS)-1):
         _cur = datetime.strptime(FIELDS[i], "%H:%M")
@@ -124,57 +75,24 @@ def update():
         if _nxt > _time >= _cur:
             CURRENT = [_row0[i], _row1[i]]
             NEXT = [_row0[i+1], _row1[i+1]]
-
-            if _repl is not None:
-                try:
-                    CURRENT = _repl[str(i)]
-                except KeyError:
-                    pass
-
-                try:
-                    NEXT = _repl[str(i+1)]
-                except KeyError:
-                    pass
-
             TIME_LEFT = time_format(_nxt - _time)
-
             break
 
     if CURRENT == []:
         _bgn = datetime.strptime(FIELDS[0], "%H:%M")
-        _len = len(FIELDS)-1
-        _end = datetime.strptime(FIELDS[_len], "%H:%M")
+        _end = datetime.strptime(FIELDS[len(FIELDS)-1], "%H:%M")
 
         if _time <= _bgn:
             CURRENT = [ROWS[14][0], ""]
             NEXT = [_row0[0], _row1[0]]
-
-            if _repl is not None:
-                try:
-                    NEXT = _repl["0"]
-                except KeyError:
-                    pass
-
             TIME_LEFT = time_format(_bgn - _time)
         elif _time >= _end:
             _tommorow = LAST_CHECK + timedelta(days=1)
             _row0 = ROWS[_tommorow.weekday()]
             _row1 = ROWS[_tommorow.weekday() + 7]
 
-            try:
-                _repl = REPL[datetime.strftime(_tommorow, "%m-%d")]
-            except KeyError:
-                _repl = None
-
             CURRENT = [ROWS[14][1], ""]
             NEXT = [_row0[0], _row1[0]]
-
-            if _repl is not None:
-                try:
-                    NEXT = _repl["0"]
-                except KeyError:
-                    pass
-
             TIME_LEFT = time_format(_bgn - _time + timedelta(hours=24))
 
     if CURRENT[0] in ROWS[14]:
@@ -192,17 +110,8 @@ def update():
 
 
 # Window definition
-LO = [[sg.P(), sg.T(""), sg.P()],
-      [sg.T("Current:"), sg.T(""), sg.T("")],
-      [sg.T("Time left:"), sg.T("")],
-      [sg.T("Next:"), sg.T(""), sg.T("")]]
-Win = sg.Window("Timetable Widget",
-                LO,
-                keep_on_top=True,
-                finalize=True,
-                grab_anywhere=True,
-                no_titlebar=True)
-
+LO = [[sg.T("Initializing..."), sg.P()]]
+Win = sg.Window("Timetable Widget", LO, finalize=True)
 
 while RUNNING:
     now = datetime.now()
